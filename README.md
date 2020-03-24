@@ -8,5 +8,6 @@ The expected modules are:
 
 - Filters
 - Convert and cut HDF5
-- Spike Sorting (TDC)
-- Phase-locking
+- Spike Sorting (post TDC)
+- Phase-locking (by Lilian Goepp)
+- Behaviour
