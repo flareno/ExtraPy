@@ -107,3 +107,18 @@ def compute_timefreq(sig, sampling_rate, f_start, f_stop, delta_freq=1., nb_freq
     freqs = np.arange(f_start,f_stop,delta_freq)
     times = np.arange(n_init)/tfr_sampling_rate + t_start
     return wt, times, freqs, tfr_sampling_rate
+
+def ridge_map(ampl_map, threshold=70.):
+    max_power = np.max(ampl_map) #Max power observed in frequency spectrum
+    freq_power_threshold = float(threshold) #The threshold range for power detection of the ridge 
+    cut_off_power = max_power/100.0*freq_power_threshold #Computes power above trheshold
+    
+    boolean_map = ampl_map >= cut_off_power #For plot 
+    
+    value_map = ampl_map
+    
+    for i,j in np.ndenumerate(ampl_map):
+        if j <= cut_off_power:
+            value_map[i] = 0.0 #For computation, all freq < trhesh = 0.0
+            
+    return boolean_map, value_map
