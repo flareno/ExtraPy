@@ -172,6 +172,21 @@ def separate_by_delay(random, licks, delay1=400, delay2=900):
 
 
 
+def separate_by_condition(licks, nb_control_trials=30):
+  
+    lick = licks
+  
+    nostim = []
+    stim = []
+    
+    [nostim.append([t,l]) for t,l in lick if t <= nb_control_trials]
+    nostim = np.asarray(nostim)
+    [stim.append([t,l]) for t,l in lick if t > nb_control_trials]
+    stim = np.asarray(stim)
+    return nostim, stim
+ 
+
+
 if __name__ == '__main__':
     
 
