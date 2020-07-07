@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
 """
 Created on Wed Oct 16 14:02:27 2019
-
-@author: San Garcia (Adapted by Federica Lareno Faccini)
+@author: Federica Lareno Faccini (adapted from an original script of Sam Garcia)
 """
 
-def filter_signal(signal, order=8, sample_rate=20000,freq_low=400,freq_high=2000, axis=0):
+def bandpass_filter(signal, order=8, sample_rate=20000,freq_low=400,freq_high=2000, axis=0):
     
     import scipy.signal
     
@@ -56,7 +55,7 @@ if __name__ == '__main__':
     notch = notch_filter(signal=data[:,1])
     
     plt.plot(sig_times, data[:,1], linewidth=0.3, alpha=0.3, color='k', label='Raw signal')
-    plt.plot(sig_times, filter_signal(notch,freq_low=freq_low,freq_high=freq_high), linewidth=0.3, color='b', label='Filtered signal')
+    plt.plot(sig_times, bandpass_filter(notch,freq_low=freq_low,freq_high=freq_high), linewidth=0.3, color='b', label='Filtered signal')
     plt.legend()
     
     #low = 0.0049
