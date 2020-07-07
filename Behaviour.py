@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 Created on Thu Dec  5 18:36:18 2019
-
 @author: F.LARENO-FACCINI
 """
 import pandas as pd
@@ -81,26 +80,28 @@ def separate_by_delay(random, licks, delay1=400, delay2=900):
         
     delay2 : INT, optional
         The default is 900.
-
     Returns
     -------
-    l400 : 2D numpy array
+    l400 :  2D numpy array
         Array containing every lick event and the corresponding trial that had a delay of 400ms between the last cue and the reward
         
-    l900 : 2D numpy array
+    l900 :  2D numpy array
         Array containing every lick event and the corresponding trial that had a delay of 900ms between the last cue and the reward
         
-    l900_400 : 2D numpy array
+    l900_400 :  2D numpy array
         Array containing every lick event and the corresponding trial that had a delay of 400ms and of 900ms at trial-1
         
-    l900_900 : 2D numpy array
+    l900_900 :  2D numpy array
         Array containing every lick event and the corresponding trial that had a delay of 900ms for the last two trials (trial and trial-1)
         
-    l400_400 : 2D numpy array
+    l400_400 :  2D numpy array
         Array containing every lick event and the corresponding trial that had a delay of 900ms for the last two trials (trial and trial-1)
         
-    l400_900 : 2D numpy array
+    l400_900 :  2D numpy array
         Array containing every lick event and the corresponding trial that had a delay of 900ms and of 400ms at trial-1
+    
+    (d400, d900, d900_400, d900_900, d400_400, d400_900) :  list of arrays
+        List of arrays with the number of the trial and the respective delay     
     """
     
     d400, d900, d900_900, d400_400, d400_900, d900_400= [], [], [], [], [], []
@@ -184,5 +185,4 @@ if __name__ == '__main__':
     psth = PSTH_lick(B, ax=ax[1], color='r')
     
     rand = extract_random_delay(param)
-    
-   
+    l400, l900, l900_400, l900_900, l400_400, l400_900,_ = separate_by_delay(rand,B)
