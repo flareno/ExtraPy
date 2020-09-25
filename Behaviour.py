@@ -6,12 +6,14 @@ Created on Thu Dec  5 18:36:18 2019
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.ndimage.filters import gaussian_filter1d
 
 
-    
+
 def load_lickfile(file_path, sep="\t", header=None):
     A = np.array(pd.read_csv(file_path, sep=sep, header=header))
     return np.array([[A[i][0], float(A[i][1].replace(',','.'))] for i in range(len(A))])
+
 
 
 def scatter_lick(licks, ax=None, x_label='Time (s)', y_label='Trial Number', **kwargs):
@@ -26,12 +28,12 @@ def scatter_lick(licks, ax=None, x_label='Time (s)', y_label='Trial Number', **k
         pass
 
 
-def PSTH_lick(licks, ax=None, lentrial=10, samp_period=0.01, **kwargs):
+def psth_lick(licks, ax=None, lentrial=10, samp_period=0.01, density=False, **kwargs):
     ax = ax or plt.gca()
    
     if len(licks)>0:
         bins = np.arange(0,lentrial+samp_period,samp_period)
-        return ax.hist(licks[:,1], bins, density=1, **kwargs)
+        return ax.hist(licks[:,1], bins, density=density, **kwargs)
     else:
         return ax.axis('off')
         
@@ -48,7 +50,7 @@ def extract_random_delay(param):
                     random.append(line)
                 else:
                     continue
-    del(random[0])
+    del(random[0]) # delete first row of param files. This is to overcome a bug in the acquisition software that logs the parameters shifted of one trial. Hence, we loose last trial
     
     for i in random:
         temp__ = i.split(' ')[-1]
@@ -59,6 +61,25 @@ def extract_random_delay(param):
     # r_time = np.asarray(r_time)
     RandomT = [float(r_time[i]) for i in range(len(r_time))]
     return [[float(RandomT[i]), int(i+1)] for i in range (len(RandomT))]
+
+
+def loop_dict_1d(title,d1,iterab1,iterab2):
+    if '{:d}'.format(d1) not in title:
+        title['{:d}'.format(d1)] = np.asarray([iterab1,iterab2])
+    else:
+        title['{:d}'.format(d1)] = np.vstack((title['{:d}'.format(d1)],np.asarray([iterab1,iterab2])))
+
+def loop_dict_2d(title,d1,d2,iterab1,iterab2):
+    if '{:d}_{:d}'.format(d1,d2) not in title:
+        title['{:d}_{:d}'.format(d1,d2)] = np.asarray([iterab1,iterab2])
+    else:
+        title['{:d}_{:d}'.format(d1,d2)] = np.vstack((title['{:d}_{:d}'.format(d1,d2)],np.asarray([iterab1,iterab2])))
+
+def loop_dict_3d(title,d1,d2,d3,iterab1,iterab2):
+    if '{:d}_{:d}_{:d}'.format(d1,d2,d3) not in title:
+        title['{:d}_{:d}_{:d}'.format(d1,d2,d3)] = np.asarray([iterab1,iterab2])
+    else:
+        title['{:d}_{:d}_{:d}'.format(d1,d2,d3)] = np.vstack((title['{:d}_{:d}_{:d}'.format(d1,d2,d3)],np.asarray([iterab1,iterab2])))
 
 
 def separate_by_delay(random, licks, delay1=400, delay2=900):
@@ -82,100 +103,81 @@ def separate_by_delay(random, licks, delay1=400, delay2=900):
         The default is 900.
     Returns
     -------
-    l400 :  2D numpy array
-        Array containing every lick event and the corresponding trial that had a delay of 400ms between the last cue and the reward
+    delays :  python dictionary
+        Dictionary containing every trial and the corresponding delay. Classified based on the daly at t,t-1 and t-2
         
-    l900 :  2D numpy array
-        Array containing every lick event and the corresponding trial that had a delay of 900ms between the last cue and the reward
-        
-    l900_400 :  2D numpy array
-        Array containing every lick event and the corresponding trial that had a delay of 400ms and of 900ms at trial-1
-        
-    l900_900 :  2D numpy array
-        Array containing every lick event and the corresponding trial that had a delay of 900ms for the last two trials (trial and trial-1)
-        
-    l400_400 :  2D numpy array
-        Array containing every lick event and the corresponding trial that had a delay of 900ms for the last two trials (trial and trial-1)
-        
-    l400_900 :  2D numpy array
-        Array containing every lick event and the corresponding trial that had a delay of 900ms and of 400ms at trial-1
-    
-    (d400, d900, d900_400, d900_900, d400_400, d400_900) :  list of arrays
-        List of arrays with the number of the trial and the respective delay     
+    licks_by_delay :  python dictionary
+        Dictionary containing every lick event and the corresponding trial. Classified based on the daly at t,t-1 and t-2
     """
+    delays, licks_by_delay = {}, {}
     
-    d400, d900, d900_900, d400_400, d400_900, d900_400= [], [], [], [], [], []
     
     for idx,(d,t) in enumerate(random):
         if d == delay1:
-            d400.append([d,t])
-            if idx == 0:
+            loop_dict_1d(delays,delay1,d,t) #create key in the dict of all the trials with delay==delay1
+        
+            if idx == 0:  # skip first trial since it has no trial-1
+                pass
+            elif random[idx-1][0] == delay1: # further divide by the delays of trial-1
+                loop_dict_2d(delays, d1=delay1, d2=delay1, iterab1=d, iterab2=t)
+                if random[idx-2][0] == delay1: # further divide by the delays of trial-2
+                    loop_dict_3d(delays,delay1,delay1,delay1,d,t)
+                elif random[idx-2][0] == delay2:
+                    loop_dict_3d(delays,delay2,delay1,delay1,d,t)
+            elif random[idx-1][0] == delay2:
+                loop_dict_2d(delays,delay2,delay1,d,t)
+                                
+        elif d == delay2: # extract trials with a delay==delay2 (usually 900ms)
+            loop_dict_1d(delays,delay2,d,t)
+        
+            if idx == 0: # skip first trial since it has no trial-1
                 pass
             elif random[idx-1][0] == delay1:
-                d400_400.append(random[idx])
+                loop_dict_2d(delays,delay1,delay2,d,t)
             elif random[idx-1][0] == delay2:
-                d900_400.append(random[idx])
-                
-        elif d == delay2:
-            d900.append([d,t])
-            if idx == 0:
-                pass
-            elif random[idx-1][0] == delay1:
-                d400_900.append(random[idx])
-            elif random[idx-1][0] == delay2:
-                d900_900.append(random[idx])
-                
-    d400 = np.asarray(d400)
-    d900 = np.asarray(d900)
-    d900_400 = np.asarray(d900_400)
-    d400_400 = np.asarray(d400_400)
-    d400_900 = np.asarray(d400_900)
-    d900_900 = np.asarray(d900_900)
-    
-    l400 = []
-    l900 = []
-    l900_400 = []
-    l400_400 = []
-    l400_900 = []
-    l900_900 = []
-    
-    
-    for t,l in licks:
-        for d,tr in d400:
-            if t==tr:
-                l400.append([t,l])
-        for d,tr in d900:
-            if t==tr:
-                l900.append([t,l])
-        for d,tr in d400_400:
-            if t==tr:
-                l400_400.append([t,l])
-        for d,tr in d900_400:
-            if t==tr:
-                l900_400.append([t,l])
-        for d,tr in d400_900:
-            if t==tr:
-                l400_900.append([t,l])
-        for d,tr in d900_900:
-            if t==tr:
-                l900_900.append([t,l])
-    
-    l400 = np.asarray(l400)
-    l900 = np.asarray(l900)
-    l400_400 = np.asarray(l400_400)
-    l400_900 = np.asarray(l400_900)
-    l900_400 = np.asarray(l900_400)
-    l900_900 = np.asarray(l900_900)
+                loop_dict_2d(delays,delay2,delay2,d,t)
+                if random[idx-2][0] == delay2: # further divide by the delays of trial-2
+                    loop_dict_3d(delays,delay2,delay2,delay2,d,t)
+                elif random[idx-2][0] == delay1:
+                    loop_dict_3d(delays,delay1,delay2,delay2,d,t)
 
-            
-    return l400, l900, l900_400, l900_900, l400_400, l400_900, (d400, d900, d900_400, d900_900, d400_400, d400_900)
+    for t,l in licks: # licks has 2 columns: t(trial number) and l(lick time)
+        for d,tr in delays['{:d}'.format(delay1)]: # series of loops to append in one array the licks for the proper delay. So to have an array similar to the original one but divided by the delays
+            if t==tr:
+                loop_dict_1d(licks_by_delay,delay1,t,l)
+        for d,tr in delays['{:d}'.format(delay2)]:
+            if t==tr:
+                loop_dict_1d(licks_by_delay,delay2,t,l)
+        for d,tr in delays['{:d}_{:d}'.format(delay1,delay1)]:
+            if t==tr:
+                loop_dict_2d(licks_by_delay,delay1,delay1,t,l)
+        for d,tr in delays['{:d}_{:d}'.format(delay2,delay1)]:
+            if t==tr:
+                loop_dict_2d(licks_by_delay,delay2,delay1,t,l)
+        for d,tr in delays['{:d}_{:d}'.format(delay1,delay2)]:
+            if t==tr:
+                loop_dict_2d(licks_by_delay,delay1,delay2,t,l)
+        for d,tr in delays['{:d}_{:d}'.format(delay2,delay2)]:
+            if t==tr:
+                loop_dict_2d(licks_by_delay,delay2,delay2,t,l)
+        for d,tr in delays['{:d}_{:d}_{:d}'.format(delay1,delay1,delay1)]:
+            if t==tr:
+                loop_dict_3d(licks_by_delay,delay1,delay1,delay1,t,l)
+        for d,tr in delays['{:d}_{:d}_{:d}'.format(delay2,delay1,delay1)]:
+            if t==tr:
+                loop_dict_3d(licks_by_delay,delay2,delay1,delay1,t,l)
+        for d,tr in delays['{:d}_{:d}_{:d}'.format(delay2,delay2,delay2)]:
+            if t==tr:
+                loop_dict_3d(licks_by_delay,delay2,delay2,delay2,t,l)
+        for d,tr in delays['{:d}_{:d}_{:d}'.format(delay1,delay2,delay2)]:
+            if t==tr:
+                loop_dict_3d(licks_by_delay,delay1,delay2,delay2,t,l)
+
+    return delays, licks_by_delay
 
 
 
-def separate_by_condition(licks, nb_control_trials=30):
-  
-    lick = licks
-  
+def separate_by_condition(lick, nb_control_trials=30):
     nostim = []
     stim = []
     
@@ -185,19 +187,45 @@ def separate_by_condition(licks, nb_control_trials=30):
     stim = np.asarray(stim)
     return nostim, stim
  
+    
+    
+def envelope(n, bins, ax=None, len_trial=10, x_label='Time (s)', y_label='Number Count', sigma=2, **kwargs):
+    # PLOTTING THE ENVELOPE (which is n, the y value of each point of the PSTH)
+    binning = []
+    for h in range(len(bins)):
+        if h>0:
+            binning.append(np.mean((bins[h],bins[h-1])))
+    step = len_trial/len(binning)
+    x = np.arange(0,len_trial,step)
+    
+    # smoothening the envelope
+    nsmoothed = gaussian_filter1d(n, sigma)
+
+    ax = ax or plt.gca()
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
+    return ax.plot(x, nsmoothed)
+
 
 
 if __name__ == '__main__':
+    import time
     
+    startTime = time.time()
 
-    path = r"D:/F.LARENO.FACCINI/Preliminary Results/Behaviour/Group 12/1089/Training/1089_2019_12_09_14_29_45.lick"
-    param = r"D:/F.LARENO.FACCINI/Preliminary Results/Behaviour/Group 12/1089/Training/1089_2019_12_09_14_29_45.param"
+    path = r"D:/F.LARENO.FACCINI/Preliminary Results/Behaviour/Group 14/6409/Training/T9.1/6409_2020_06_11_11_55_35.lick"
+    param = r"D:/F.LARENO.FACCINI/Preliminary Results/Behaviour/Group 14/6409/Training/T9.1/6409_2020_06_11_11_55_35.param"
     B = load_lickfile(path)  
     
     fig, ax = plt.subplots(2)
     scatter_lick(B, ax=ax[0], color='r')
-    
-    psth = PSTH_lick(B, ax=ax[1], color='r')
+    psth_lick(B, ax=ax[1], color='r')
     
     rand = extract_random_delay(param)
-    l400, l900, l900_400, l900_900, l400_400, l400_900,_ = separate_by_delay(rand,B)
+    delays, licks_by_delay = separate_by_delay(rand,B)
+    
+    # nostim, stim = separate_by_condition(B)
+    
+    # delay_400, delay_900, delay_900_400, delay_900_900, delay_400_400, delay_400_900 = d
+    print ('The script took {0} second !'.format(time.time() - startTime))
+    
