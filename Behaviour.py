@@ -208,15 +208,21 @@ def envelope(n, bins, ax=None, len_trial=10, x_label='Time (s)', y_label='Number
     return ax.plot(x, nsmoothed)
 
 
-def concatenate_licks(folder, skip_last=False):
+def concatenate_licks(path, skip_last=False):
     """
     Concatenates multiple .lick files present in the same folder.
-    The resultin array has incremental trial numbers (as if they had all been recorded in one session). 
+    The resulting array has incremental trial numbers (as if they had all been recorded in one session). 
+    It can remove the last trial (with corresponding lick times) in case there is the need to use this data
+    with the info coming from .param file (which skips the logging of the last trial hence we need to exclude 
+                                           the last trial also from the .lick file)
     
     Parameters
     ----------
-    folder : str
+    path : str
         path to the directory containinf the .lick files to concatenate.
+    
+    skip_last : boolean
+        if True, it will remove the last trial (both the trial number and each corresponding lick)
 
     Returns
     -------
@@ -224,14 +230,14 @@ def concatenate_licks(folder, skip_last=False):
         new 2d array with same original structure (column0: trial number; column1: lick time).
 
     """
-    pre_list = os.listdir(folder)
+    pre_list = os.listdir(path)
     lick_files = [x for x in pre_list if 'lick' in x]
     
     Concat_trials = [0]  
     Concat_licks = [0]
         
     for lickfile in lick_files:
-        new_path = '{}\{}'.format(folder,lickfile)
+        new_path = '{}\{}'.format(path,lickfile)
         try:
             B = load_lickfile(new_path)
             B[:,0] = [B[i,0]+Concat_trials[-1] for i in range(len(B))]
