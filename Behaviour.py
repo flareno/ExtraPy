@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.ndimage.filters import gaussian_filter1d
+import os
 
 
 
@@ -16,7 +17,7 @@ def load_lickfile(file_path, sep="\t", header=None):
 
 
 
-def scatter_lick(licks, ax=None, x_label='Time (s)', y_label='Trial Number', **kwargs):
+def scatter_lick(licks, ax=None, x_label='Time (s)', y_label='Trial Number',**kwargs):
     if len(licks)>0:
         ax = ax or plt.gca()
         x_label = x_label
@@ -28,7 +29,7 @@ def scatter_lick(licks, ax=None, x_label='Time (s)', y_label='Trial Number', **k
         pass
 
 
-def psth_lick(licks, ax=None, lentrial=10, samp_period=0.01, density=False, **kwargs):
+def psth_lick(licks, ax=None, lentrial=10, samp_period=0.01, density=False,**kwargs):
     ax = ax or plt.gca()
    
     if len(licks)>0:
@@ -107,7 +108,7 @@ def separate_by_delay(random, licks, delay1=400, delay2=900):
         Dictionary containing every trial and the corresponding delay. Classified based on the daly at t,t-1 and t-2
         
     licks_by_delay :  python dictionary
-        Dictionary containing every lick event and the corresponding trial. Classified based on the daly at t,t-1 and t-2
+        Dictionary containing every lick event and the corresponding trial. Classified based on the daly at t,t-1 and t-2        
     """
     delays, licks_by_delay = {}, {}
     
@@ -189,7 +190,7 @@ def separate_by_condition(lick, nb_control_trials=30):
  
     
     
-def envelope(n, bins, ax=None, len_trial=10, x_label='Time (s)', y_label='Number Count', sigma=2, **kwargs):
+def envelope(n, bins, ax=None, len_trial=10, x_label='Time (s)', y_label='Number Count', sigma=2):
     # PLOTTING THE ENVELOPE (which is n, the y value of each point of the PSTH)
     binning = []
     for h in range(len(bins)):
@@ -206,6 +207,49 @@ def envelope(n, bins, ax=None, len_trial=10, x_label='Time (s)', y_label='Number
     ax.set_ylabel(y_label)
     return ax.plot(x, nsmoothed)
 
+
+def concatenate_licks(folder, skip_last=False):
+    """
+    Concatenates multiple .lick files present in the same folder.
+    The resultin array has incremental trial numbers (as if they had all been recorded in one session). 
+    
+    Parameters
+    ----------
+    folder : str
+        path to the directory containinf the .lick files to concatenate.
+
+    Returns
+    -------
+    2d array
+        new 2d array with same original structure (column0: trial number; column1: lick time).
+
+    """
+    pre_list = os.listdir(folder)
+    lick_files = [x for x in pre_list if 'lick' in x]
+    
+    Concat_trials = [0]  
+    Concat_licks = [0]
+        
+    for lickfile in lick_files:
+        new_path = '{}\{}'.format(folder,lickfile)
+        try:
+            B = load_lickfile(new_path)
+            B[:,0] = [B[i,0]+Concat_trials[-1] for i in range(len(B))]
+            Concat_trials = np.append(Concat_trials,B[:,0])
+            Concat_licks = np.append(Concat_licks,B[:,1])
+            uncut = len(Concat_trials)
+            if skip_last:
+                Concat_trials = Concat_trials[Concat_trials != Concat_trials[-1]]
+                delta = uncut-len(Concat_trials)
+                Concat_licks = Concat_licks[:-delta]  
+        except:
+            pass
+        
+    Concat_trials = Concat_trials.astype(int)
+    all_conc = np.zeros((len(Concat_licks),2))
+    all_conc[:,0] = Concat_trials
+    all_conc[:,1] = Concat_licks
+    return np.delete(all_conc,0,0)
 
 
 if __name__ == '__main__':
