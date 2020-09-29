@@ -20,8 +20,6 @@ def load_lickfile(file_path, sep="\t", header=None):
 def scatter_lick(licks, ax=None, x_label='Time (s)', y_label='Trial Number',**kwargs):
     if len(licks)>0:
         ax = ax or plt.gca()
-        x_label = x_label
-        y_label = y_label
         ax.set_xlabel(x_label)
         ax.set_ylabel(y_label)
         return ax.scatter(licks[:,1], licks[:,0], marker = "|", **kwargs)
@@ -38,12 +36,26 @@ def psth_lick(licks, ax=None, lentrial=10, samp_period=0.01, density=False,**kwa
     else:
         return ax.axis('off')
         
-
+def extract_ot(param):  
+    first, ot = [], []
+    
+    with open(param, 'r') as filehandle:
+        for line in filehandle:
+                if 'Sequence:  A3' in line:        
+                    first.append(line)
+                else:
+                    continue
+    del(first[0]) # delete first row of param files. This is to overcome a bug in the acquisition software that logs the parameters shifted of one trial. Hence, we loose last trial
+    
+    for i in first:
+        temp__ = i.split('Reward ON Valve ON duration:    ')[-1]
+        temp__ = temp__.split(' Delay between')[0]
+        ot.append(temp__)
+      
+    return [float(x.replace(",",".")) for x in ot]
 
 def extract_random_delay(param):
-    random = []
-    r_time = []
-    param = param
+    random, r_time = [], []
     
     with open(param, 'r') as filehandle:
         for line in filehandle:
