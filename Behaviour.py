@@ -36,7 +36,8 @@ def psth_lick(licks, ax=None, lentrial=10, samp_period=0.01, density=False,**kwa
     else:
         return ax.axis('off')
         
-def extract_ot(param):  
+
+def extract_ot(param,skip_last=True):  
     first, ot = [], []
     
     with open(param, 'r') as filehandle:
@@ -45,16 +46,18 @@ def extract_ot(param):
                     first.append(line)
                 else:
                     continue
-    del(first[0]) # delete first row of param files. This is to overcome a bug in the acquisition software that logs the parameters shifted of one trial. Hence, we loose last trial
+    if skip_last:
+        del(first[0]) # delete first row of param files. This is to overcome a bug in the acquisition software that logs the parameters shifted of one trial. Hence, we loose last trial
     
     for i in first:
-        temp__ = i.split('Reward ON Valve ON duration:    ')[-1]
+        temp__ = i.split('Valve ON duration:    ')[-1]
         temp__ = temp__.split(' Delay between')[0]
         ot.append(temp__)
       
     return [float(x.replace(",",".")) for x in ot]
 
-def extract_random_delay(param):
+
+def extract_random_delay(param, skip_last=True, fixed_delay=500):
     random, r_time = [], []
     
     with open(param, 'r') as filehandle:
@@ -63,7 +66,8 @@ def extract_random_delay(param):
                     random.append(line)
                 else:
                     continue
-    del(random[0]) # delete first row of param files. This is to overcome a bug in the acquisition software that logs the parameters shifted of one trial. Hence, we loose last trial
+    if skip_last:
+        del(random[0]) # delete first row of param files. This is to overcome a bug in the acquisition software that logs the parameters shifted of one trial. Hence, we loose last trial
     
     for i in random:
         temp__ = i.split(' ')[-1]
@@ -71,6 +75,8 @@ def extract_random_delay(param):
         r_time.append(temp__)
       
     r_time = np.asarray([[r_time[i].replace(',','.')] for i in range(len(r_time))])
+    if not skip_last:
+        r_time[0] = fixed_delay
     # r_time = np.asarray(r_time)
     RandomT = [float(r_time[i]) for i in range(len(r_time))]
     return [[float(RandomT[i]), int(i+1)] for i in range (len(RandomT))]
