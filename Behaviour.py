@@ -11,10 +11,18 @@ import os
 
 
 
-def load_lickfile(file_path, sep="\t", header=None):
+def load_lickfile(file_path, sep="\t", header=None, wheel=False, blank_reward=False, ot=0.03,len_reward=0.15,reward_time=2.5):
     A = np.array(pd.read_csv(file_path, sep=sep, header=header))
-    return np.array([[A[i][0], float(A[i][1].replace(',','.'))] for i in range(len(A))])
-
+    if wheel:
+        A = np.delete(A, (0), axis=0)
+    A = np.array([[A[i][0], float(A[i][1].replace(',','.'))] for i in range(len(A))])
+    if blank_reward:
+        start = reward_time+ot
+        stop = start+len_reward
+        for h,r in enumerate(A):
+            if r[-1] >= start and r[-1] <= stop:
+                r[-1] = np.nan
+    return A
 
 
 def scatter_lick(licks, ax=None, x_label='Time (s)', y_label='Trial Number',**kwargs):
@@ -80,6 +88,68 @@ def extract_random_delay(param, skip_last=True, fixed_delay=500):
     # r_time = np.asarray(r_time)
     RandomT = [float(r_time[i]) for i in range(len(r_time))]
     return [[float(RandomT[i]), int(i+1)] for i in range (len(RandomT))]
+
+
+def extract_cue(param,skip_last=True, cue=1):  
+    first, cue_type, cue_len = [], [], []
+    
+    with open(param, 'r') as filehandle:
+        for line in filehandle:
+                if f'Sequence:  A{cue}' in line:        
+                    first.append(line)
+                else:
+                    continue
+    if skip_last:
+        del(first[0]) # delete first row of param files. This is to overcome a bug in the acquisition software that logs the parameters shifted of one trial. Hence, we loose last trial
+    
+    for i in first:
+        temp__ = i.split(f'Sequence:  A{cue} LEDs ON ')[-1]
+        temp__ = temp__.split(' Sound OFF Sound duration:  ')[0]
+        types, *_, lens = temp__.split(' ')
+        cue_type.append(types)
+        cue_len.append(int(float(lens.replace(",","."))))
+    
+    return cue_type, cue_len
+
+
+def extract_first_delay(param,skip_last=True):  
+    first, delay = [], []
+    
+    with open(param, 'r') as filehandle:
+        for line in filehandle:
+                if 'A1 to A2 transition' in line:        
+                    first.append(line)
+                else:
+                    continue
+    if skip_last:
+        del(first[0]) # delete first row of param files. This is to overcome a bug in the acquisition software that logs the parameters shifted of one trial. Hence, we loose last trial
+    
+    for i in first:
+        temp__ = i.split('A1 to A2 transition duration:  ')[-1]
+        delay.append(int(float(temp__.replace(",","."))))
+    
+    return delay
+
+
+def extract_water_duration(param,skip_last=True):  
+    first, water = [], []
+    
+    with open(param, 'r') as filehandle:
+        for line in filehandle:
+                if 'Sequence:  A3 ' in line:        
+                    first.append(line)
+                else:
+                    continue
+    if skip_last:
+        del(first[0]) # delete first row of param files. This is to overcome a bug in the acquisition software that logs the parameters shifted of one trial. Hence, we loose last trial
+    
+    for i in first:
+        temp__ = i.split('Delay between valve OFF and vacuum:   ')[-1]
+        temp__ = temp__.split(' Vacuum duration:   ')[0]
+        water.append(int(float(temp__.replace(",","."))))
+    
+    return water
+
 
 
 def loop_dict_1d(title,d1,iterab1,iterab2):
@@ -167,31 +237,62 @@ def separate_by_delay(random, licks, delay1=400, delay2=900):
         for d,tr in delays['{:d}'.format(delay2)]:
             if t==tr:
                 loop_dict_1d(licks_by_delay,delay2,t,l)
-        for d,tr in delays['{:d}_{:d}'.format(delay1,delay1)]:
-            if t==tr:
-                loop_dict_2d(licks_by_delay,delay1,delay1,t,l)
-        for d,tr in delays['{:d}_{:d}'.format(delay2,delay1)]:
-            if t==tr:
-                loop_dict_2d(licks_by_delay,delay2,delay1,t,l)
-        for d,tr in delays['{:d}_{:d}'.format(delay1,delay2)]:
-            if t==tr:
-                loop_dict_2d(licks_by_delay,delay1,delay2,t,l)
-        for d,tr in delays['{:d}_{:d}'.format(delay2,delay2)]:
-            if t==tr:
-                loop_dict_2d(licks_by_delay,delay2,delay2,t,l)
-        for d,tr in delays['{:d}_{:d}_{:d}'.format(delay1,delay1,delay1)]:
-            if t==tr:
-                loop_dict_3d(licks_by_delay,delay1,delay1,delay1,t,l)
-        for d,tr in delays['{:d}_{:d}_{:d}'.format(delay2,delay1,delay1)]:
-            if t==tr:
-                loop_dict_3d(licks_by_delay,delay2,delay1,delay1,t,l)
-        for d,tr in delays['{:d}_{:d}_{:d}'.format(delay2,delay2,delay2)]:
-            if t==tr:
-                loop_dict_3d(licks_by_delay,delay2,delay2,delay2,t,l)
-        for d,tr in delays['{:d}_{:d}_{:d}'.format(delay1,delay2,delay2)]:
-            if t==tr:
-                loop_dict_3d(licks_by_delay,delay1,delay2,delay2,t,l)
-
+        if '{:d}_{:d}'.format(delay1,delay1) in delays:
+            try:
+                for d,tr in delays['{:d}_{:d}'.format(delay1,delay1)]:
+                    if t==tr:
+                        loop_dict_2d(licks_by_delay,delay1,delay1,t,l)
+            except:
+                pass
+        if '{:d}_{:d}'.format(delay2,delay1) in delays:
+            try:
+                for d,tr in delays['{:d}_{:d}'.format(delay2,delay1)]:
+                    if t==tr:
+                        loop_dict_2d(licks_by_delay,delay2,delay1,t,l)
+            except:
+                pass
+        if '{:d}_{:d}'.format(delay1,delay2) in delays:
+            try:
+                for d,tr in delays['{:d}_{:d}'.format(delay1,delay2)]:
+                    if t==tr:
+                        loop_dict_2d(licks_by_delay,delay1,delay2,t,l)
+            except:
+                pass
+        if '{:d}_{:d}'.format(delay2,delay2) in delays:
+            try:
+                for d,tr in delays['{:d}_{:d}'.format(delay2,delay2)]:
+                    if t==tr:
+                        loop_dict_2d(licks_by_delay,delay2,delay2,t,l)
+            except:
+                pass
+        if '{:d}_{:d}_{:d}'.format(delay1,delay1,delay1) in delays:
+            try:
+                for d,tr in delays['{:d}_{:d}_{:d}'.format(delay1,delay1,delay1)]:
+                    if t==tr:
+                        loop_dict_3d(licks_by_delay,delay1,delay1,delay1,t,l)
+            except:
+                pass
+        if '{:d}_{:d}_{:d}'.format(delay2,delay1,delay1) in delays:
+            try:
+                for d,tr in delays['{:d}_{:d}_{:d}'.format(delay2,delay1,delay1)]:
+                    if t==tr:
+                        loop_dict_3d(licks_by_delay,delay2,delay1,delay1,t,l)
+            except:
+                pass
+        if '{:d}_{:d}_{:d}'.format(delay2,delay2,delay2) in delays:
+            try:
+                for d,tr in delays['{:d}_{:d}_{:d}'.format(delay2,delay2,delay2)]:
+                    if t==tr:
+                        loop_dict_3d(licks_by_delay,delay2,delay2,delay2,t,l)
+            except:
+                pass
+        if '{:d}_{:d}_{:d}'.format(delay1,delay2,delay2) in delays:
+            try:
+                for d,tr in delays['{:d}_{:d}_{:d}'.format(delay1,delay2,delay2)]:
+                    if t==tr:
+                        loop_dict_3d(licks_by_delay,delay1,delay2,delay2,t,l)
+            except:
+                pass
     return delays, licks_by_delay
 
 
@@ -208,22 +309,33 @@ def separate_by_condition(lick, nb_control_trials=30):
  
     
     
-def envelope(n, bins, ax=None, len_trial=10, x_label='Time (s)', y_label='Number Count', sigma=2):
-    # PLOTTING THE ENVELOPE (which is n, the y value of each point of the PSTH)
-    binning = []
-    for h in range(len(bins)):
-        if h>0:
-            binning.append(np.mean((bins[h],bins[h-1])))
-    step = len_trial/len(binning)
-    x = np.arange(0,len_trial,step)
-    
+def convolve(n, bins=None, ax=None, len_trial=10, x_label='Time (s)', y_label='Number Count', sigma=2,**kwargs):
     # smoothening the envelope
     nsmoothed = gaussian_filter1d(n, sigma)
+    if ax != None:
+        # PLOTTING THE ENVELOPE (which is n, the y value of each point of the PSTH)    
+        binning = []
+        for h in range(len(bins)):
+            if h>0:
+                binning.append(np.mean((bins[h],bins[h-1])))
+        step = len_trial/len(binning)
+        x = np.arange(0,len_trial,step)
+    
+        ax = ax or plt.gca()
+        ax.set_xlabel(x_label)
+        ax.set_ylabel(y_label)
+        ax.plot(x, nsmoothed,**kwargs)
+    return nsmoothed
 
-    ax = ax or plt.gca()
-    ax.set_xlabel(x_label)
-    ax.set_ylabel(y_label)
-    return ax.plot(x, nsmoothed)
+def len_trial(path):
+    param = path.replace('.lick','.param')
+    max_trial = []
+    with open(param, 'r') as filehandle:
+        for line in filehandle:
+                if 'Trial #:' in line:        
+                    max_trial.append(line)
+    max_trial = (max_trial[-1])
+    return int(max_trial.split(' ')[-1])
 
 
 def concatenate_licks(path, skip_last=False):
@@ -253,19 +365,22 @@ def concatenate_licks(path, skip_last=False):
     
     Concat_trials = [0]  
     Concat_licks = [0]
-        
+    max_trial = 0
+ 
     for lickfile in lick_files:
         new_path = '{}\{}'.format(path,lickfile)
         try:
             B = load_lickfile(new_path)
-            B[:,0] = [B[i,0]+Concat_trials[-1] for i in range(len(B))]
+            B[:,0] = [B[i,0]+max_trial for i in range(len(B))]
             Concat_trials = np.append(Concat_trials,B[:,0])
             Concat_licks = np.append(Concat_licks,B[:,1])
+            max_trial = max_trial+(len_trial(new_path))
             uncut = len(Concat_trials)
             if skip_last:
-                Concat_trials = Concat_trials[Concat_trials != Concat_trials[-1]]
+                Concat_trials = Concat_trials[Concat_trials != max_trial]
                 delta = uncut-len(Concat_trials)
-                Concat_licks = Concat_licks[:-delta]  
+                if delta != 0:
+                    Concat_licks = Concat_licks[:-delta]  
         except:
             pass
         
@@ -275,6 +390,31 @@ def concatenate_licks(path, skip_last=False):
     all_conc[:,1] = Concat_licks
     return np.delete(all_conc,0,0)
 
+
+def concat_param(dir_list):
+    trials = [] # Initialize counter for trial number
+    trial_max = 0
+    for idx,file in enumerate(dir_list):
+        #recreate path
+        param = file.replace('.lick','.param')
+        #Load random delays 
+        random = extract_random_delay(param,skip_last=True,fixed_delay=500) 
+        # Format the delay array
+        delay = np.asarray([d for d, _ in (random)])
+        ot = np.asarray(extract_ot(param,skip_last=True)) 
+        if idx ==0:
+            delays = delay
+            ots = ot
+        else:
+            delays = np.concatenate((delays,delay))
+            ots = np.concatenate((ots,ot))
+        # Format the trial array
+        trial = np.asarray([t for _,t in (random)])
+        trial[:] = [i+trial_max for i in trial]
+        trial_max = trial_max+(len_trial(param))
+        trials = np.append(trials,trial)
+    random = [list(a) for a in zip(delays,trials)]
+    return random, ots
 
 if __name__ == '__main__':
     import time
