@@ -122,3 +122,27 @@ def ridge_map(ampl_map, threshold=70.):
             value_map[i] = 0.0 #For computation, all freq < trhesh = 0.0
             
     return boolean_map, value_map
+
+def ridge_line(ampl_map, tfr_sampling_rate, delta_freq=0.1, t0=0, t1=None, f0=4, f1=12, rescale=False):
+    freq0 = int(f0/delta_freq)
+    freq1 = int(f1/delta_freq)
+    
+    if t1 is None and t0 is None:
+        theta = ampl_map[:,freq0:freq1]
+    else:
+        time0 = int(tfr_sampling_rate*t0)
+        time1 = int(tfr_sampling_rate*t1)
+        theta = ampl_map[time0:time1,freq0:freq1]
+        
+    ridge = np.empty(len(theta))
+    ridge[:] = np.nan
+    y = np.empty(len(ridge))
+    y[:] = np.nan
+    
+    for i in range(theta.shape[0]):
+        ridge[i] = np.max(theta[i,:])
+        y[i] = (np.where(theta[i,:] == ridge[i]))[0]
+    if rescale:
+        y[:] = y*delta_freq+f0
+    x = np.arange(0,len(theta),1)  
+    return ridge,theta,x,y
