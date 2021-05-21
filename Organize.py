@@ -18,8 +18,8 @@ def file_list(path, no_extension=True, ext='.xlsx'):
     if no_extension:
         return remove_extension(files, ext)
     if not no_extension:
-        return files
-    
+        return sorted(files)
+
 #Removes trials where the mouse licks only at the time of the reward (this is most probably a false positive of the water drop)
 #and when the mouse doesn't lick until after 4 seconds (in this case he hasn't performed the task so we exclude it)
 def remove_empty_trials(path,skip_last=False,end_of_second_cue=2):
@@ -29,11 +29,12 @@ def remove_empty_trials(path,skip_last=False,end_of_second_cue=2):
     reward_len = bv.extract_water_duration(path.replace('.lick','.param'),skip_last=skip_last)[0]/1000
     len_delay = bv.extract_random_delay(path.replace('.lick','.param'),skip_last=skip_last)
     
+    
     len_trial = int(len_delay[-1][1])
     for i in range(1,len_trial+1):
         reward_on = end_of_second_cue+len_delay[i-1][0]/1000+ot
-        reward_off = reward_on+reward_len
-
+        reward_off = reward_on+reward_len+0.1 # these extra 100ms added is to rmeove some effect of the dangling water seen in some trials
+        # print(reward_on, reward_off)
         trial_x = licks[np.where((licks[:,0]==i) & (licks[:,1]<4))]
         good_licks = trial_x[np.where(~((trial_x[:,1]>=(reward_on)) & (trial_x[:,1]<=(reward_off))))]
         
@@ -43,8 +44,6 @@ def remove_empty_trials(path,skip_last=False,end_of_second_cue=2):
         licks = np.delete(licks,np.where(licks[:,0]==licks[-1,0]),axis=0)
 
     return licks
-
-
 
 if __name__ == '__main__':
 
