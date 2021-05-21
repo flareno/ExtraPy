@@ -416,6 +416,26 @@ def concat_param(dir_list):
     random = [list(a) for a in zip(delays,trials)]
     return random, ots
 
+
+def moving_auc(bins, signal, win_size):
+    import sklearn.metrics as metrics 
+
+    debut = 0
+    fin = win_size
+    delta = win_size
+    loops = len(signal)/delta
+
+    auc = []
+    for _ in range(int(loops)):
+        temp__ = metrics.auc(bins[debut:fin], signal[debut:fin])
+        auc.append(temp__)
+        debut += delta
+        fin += delta
+
+    return auc
+
+
+
 if __name__ == '__main__':
     import time
     
